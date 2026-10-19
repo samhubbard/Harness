@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Secrets: never commit API keys
+.env
+*.key
+
+# Runtime output
+logs/
+*.log
