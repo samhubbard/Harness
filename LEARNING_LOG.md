@@ -50,6 +50,13 @@ Status: ⬜ not started · 🟨 in progress · ✅ can explain it in my own word
   *Sharper:* the readback must be generated from **the same data that will execute**. If the model wrote it, there'd be
   two outputs (prose + JSON) that can disagree, and the user would confirm one while the other runs. A Python readback
   doesn't need the model to be right; it needs to show faithfully what will happen, so the *user* can catch it.
+- 🟨 **"Climb to 3,000" from 5,000: what was lost, and the fix?** Lost: the word "climb" (at the model → schema step;
+  the state was fine). Fix: optional `vertical_direction` (same pattern as `turn_direction`). *Correction to my rule:*
+  absent is fine ("maintain 3,000" is normal; asking would cause over-refusal). The rule fires when it is **present and
+  contradicts state** → reject. Two kinds of state-aware rule: **ambiguity** (missing + needed → ask) vs
+  **contradiction** (present + conflicts → reject).
+  **Insight:** ATC phrasing is deliberately redundant, and redundancy is how you detect errors (like a checksum).
+  Capture what the user said even when it could be derived.
 
 ---
 
