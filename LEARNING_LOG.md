@@ -38,6 +38,18 @@ Status: ⬜ not started · 🟨 in progress · ✅ can explain it in my own word
 - 🟨 **What did "Turn left heading 270" lose?** My insight: *a validator can only check what arrives; it can't
   see what's missing* (it catches commission errors, not omissions). *Correction:* both commands arrived; what was lost
   was **turn direction**. The schema has no field for it, so the model couldn't express it. Fix: the schema first, with readback as the backstop.
+- ✅ **What does the model read vs. what does the schema control?** *Correction:* the model never sees the JSON request.
+  Ollama turns `messages` into tokens for the model, and turns the schema into a grammar for the **sampler**, which
+  blocks disallowed tokens at each step. Nothing was "shortened" afterwards: after `2500` every digit was blocked.
+  Proof: prompt_tokens was identical (297) with and without the schema.
+- ✅ **Should `turn_direction` be required?** No. ATC often omits it ("fly heading 270"). A required field forces the
+  model to **invent** a value: the same failure as the 2,500 ft bug. Optional field + deterministic policy in Python
+  (shortest turn; exactly 180° with no direction → default or clarify).
+  **Rule:** only make a field required if the user must always supply it.
+- 🟨 **Why must Python, not the model, write the readback?** My answer: we can't assume the model is accurate.
+  *Sharper:* the readback must be generated from **the same data that will execute**. If the model wrote it, there'd be
+  two outputs (prose + JSON) that can disagree, and the user would confirm one while the other runs. A Python readback
+  doesn't need the model to be right; it needs to show faithfully what will happen, so the *user* can catch it.
 
 ---
 
