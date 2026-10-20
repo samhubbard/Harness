@@ -5,6 +5,7 @@ fails, nothing is applied (like a pilot refusing a clearance they can't fully co
 """
 
 from harness.schema import Clarify, CommandBatch, SetAirspeed, SetAltitude, SetFrequency, SetHeading
+from harness.state import AircraftState
 
 # FICTIONAL training limits, not real CH-47F data.
 ALTITUDE_FT = (0, 15_000)
@@ -21,12 +22,26 @@ def _out_of_range(name: str, value: float, limits: tuple[float, float]) -> str |
     return f"{name} {value} outside allowed range {low}-{high}"
 
 
-def _check_command(cmd) -> str | None:
+def _shortest_turn_deg(current: int, target: int) -> int:
+    delta = (target - current) % 360
+    return min(delta, 360 - delta)
+
+
+def _check_heading(cmd: SetHeading, state: AircraftState) -> str | None:
+    if reason := _out_of_range("heading_deg", cmd.heading_deg, HEADING_DEG):
+        return reason
+    # State-aware rule: a 180° reversal has no "shortest" side, so the direction must be stated.
+    if cmd.turn_direction is None and _shortest_turn_deg(state.heading_deg, cmd.heading_deg) == 180:
+        return f"heading {cmd.heading_deg:03d} is a 180° turn from {state.heading_deg:03d}: say turn left or right"
+    return None
+
+
+def _check_command(cmd, state: AircraftState) -> str | None:
     match cmd:
         case SetAltitude():
             return _out_of_range("altitude_ft", cmd.altitude_ft, ALTITUDE_FT)
         case SetHeading():
-            return _out_of_range("heading_deg", cmd.heading_deg, HEADING_DEG)
+            return _check_heading(cmd, state)
         case SetAirspeed():
             return _out_of_range("airspeed_kt", cmd.airspeed_kt, AIRSPEED_KT)
         case SetFrequency():
@@ -37,7 +52,7 @@ def _check_command(cmd) -> str | None:
     return f"unknown command type {type(cmd).__name__}"
 
 
-def validate(batch: CommandBatch) -> list[str]:
+def validate(batch: CommandBatch, state: AircraftState) -> list[str]:
     """Return a list of rejection reasons. Empty list means the whole batch is accepted."""
     if not batch.commands:
         return ["no commands found"]
@@ -49,4 +64,4 @@ def validate(batch: CommandBatch) -> list[str]:
     if duplicates:
         return [f"conflicting duplicate actions: {', '.join(duplicates)}"]
 
-    return [reason for cmd in batch.commands if (reason := _check_command(cmd))]
+    return [reason for cmd in batch.commands if (reason := _check_command(cmd, state))]

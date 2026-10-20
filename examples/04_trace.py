@@ -7,6 +7,7 @@ import json
 import sys
 
 from harness.llm import build_request, parse_reply, send
+from harness.state import AircraftState
 from harness.validator import validate
 
 text = sys.argv[1] if len(sys.argv) > 1 else "Turn left heading two seven zero and climb to 3,000."
@@ -41,5 +42,5 @@ for cmd in batch.commands:
     print(f"{type(cmd).__name__:<14} {cmd!r}")
 
 stage("5. VALIDATOR decision")
-reasons = validate(batch)
+reasons = validate(batch, AircraftState())
 print("ACCEPTED" if not reasons else f"REJECTED: {reasons}")

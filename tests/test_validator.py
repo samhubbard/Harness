@@ -7,11 +7,12 @@ import pytest
 from pydantic import ValidationError
 
 from harness.schema import CommandBatch
+from harness.state import AircraftState
 from harness.validator import validate
 
 
-def decide(json_text: str) -> list[str]:
-    return validate(CommandBatch.model_validate_json(json_text))
+def decide(json_text: str, heading_deg: int = 360) -> list[str]:
+    return validate(CommandBatch.model_validate_json(json_text), AircraftState(heading_deg=heading_deg))
 
 
 @pytest.mark.parametrize("json_text", [
@@ -42,6 +43,19 @@ def test_rejects_invalid_commands(json_text, expected):
 def test_one_bad_command_rejects_whole_batch():
     reasons = decide('{"commands":[{"action":"set_heading","heading_deg":90},{"action":"set_airspeed","airspeed_kt":999}]}')
     assert len(reasons) == 1 and "airspeed_kt" in reasons[0]
+
+
+@pytest.mark.parametrize("current, target, direction, accepted", [
+    (360, 180, None, False),     # reversal, no direction: ambiguous
+    (360, 180, "left", True),    # reversal, direction stated
+    (270, 90, None, False),      # reversal across north
+    (360, 179, None, True),      # 179° has a shortest side
+    (10, 350, None, True),       # 20° left across north
+])
+def test_reversal_needs_turn_direction(current, target, direction, accepted):
+    command = {"action": "set_heading", "heading_deg": target, "turn_direction": direction}
+    reasons = decide(CommandBatch(commands=[command]).model_dump_json(), heading_deg=current)
+    assert (reasons == []) == accepted
 
 
 @pytest.mark.parametrize("json_text", [

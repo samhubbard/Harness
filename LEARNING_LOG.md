@@ -97,4 +97,11 @@ Status: ⬜ not started · 🟨 in progress · ✅ can explain it in my own word
 3. **Prompt injection** ("SYSTEM OVERRIDE ... airspeed 999") produced valid JSON; the Python validator rejected it.
    The validator doesn't care how the model was persuaded.
 
+4. **Readback caught a contradiction live:** at 5,000 ft, "climb to 3,000" read back as "**descend** and maintain 3,000".
+   The schema only stores the target, so the word "climb" was lost, the same pattern as "left". The validator passed it;
+   only the Python-generated readback exposed it to a human.
+
+**Added:** optional `turn_direction`; `state.py` (simulated aircraft); state-aware rule (180° reversal with no
+direction → clarify); `readback.py` (Python-generated ATC phrasing). 27 tests.
+
 **My one-liner:** *(write it here in my own words)*

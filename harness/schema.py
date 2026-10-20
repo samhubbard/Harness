@@ -23,6 +23,8 @@ class SetAltitude(BaseModel):
 class SetHeading(BaseModel):
     action: Literal["set_heading"]
     heading_deg: int
+    # Optional on purpose: "fly heading 270" has no direction. Required would force the model to invent one.
+    turn_direction: Literal["left", "right"] | None = None
 
 
 class SetAirspeed(BaseModel):
