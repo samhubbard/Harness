@@ -29,9 +29,15 @@ Status: ⬜ not started · 🟨 in progress · ✅ can explain it in my own word
 | 7 | Interview prep | Lucid stories, Tatsu, Army aviation, gaps, mock interview | Thu PM | ⬜ |
 | — | Light review | Re-read this log, the answers I've written, then stop | Fri AM | ⬜ |
 
-## Open questions (answer in my own words)
-- [ ] Why is `message.content` a string even when it contains JSON? What does that mean for my code?
-- [ ] What information did the harness lose in "Turn **left** heading 270"? Why does it matter?
+**Tue 10-20 decision:** Azure is on hold until I can explain the harness end to end. Schedule shifts accordingly.
+
+## Explain-back answers
+- ✅ **Why is `message.content` a string?** JSON is just text, and the model generates text. The harness parses
+  it into schema classes. *Correction:* there are two parses. `response.json()` parses the server's envelope;
+  `content` is model-written text that may NOT be valid JSON (prose, truncated), so parse #2 can fail and is wrapped in `try`/`except`.
+- 🟨 **What did "Turn left heading 270" lose?** My insight: *a validator can only check what arrives; it can't
+  see what's missing* (it catches commission errors, not omissions). *Correction:* both commands arrived; what was lost
+  was **turn direction**. The schema has no field for it, so the model couldn't express it. Fix: the schema first, with readback as the backstop.
 
 ---
 

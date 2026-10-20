@@ -28,7 +28,13 @@ class ModelOutputError(Exception):
 
 
 def interpret(text: str) -> CommandBatch:
-    body = {
+    """The whole round trip: build request -> send -> parse reply."""
+    return parse_reply(send(build_request(text)))
+
+
+def build_request(text: str) -> dict:
+    """Step 1: the JSON body we POST. Nothing has touched the network yet."""
+    return {
         "model": MODEL,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -42,9 +48,18 @@ def interpret(text: str) -> CommandBatch:
             "json_schema": {"name": "command_batch", "schema": CommandBatch.model_json_schema(), "strict": True},
         },
     }
+
+
+def send(body: dict) -> dict:
+    """Step 2: HTTP POST. Returns the server's envelope, parsed from JSON (parse #1)."""
     response = httpx.post(ENDPOINT, json=body, timeout=60)
     response.raise_for_status()
-    choice = response.json()["choices"][0]
+    return response.json()
+
+
+def parse_reply(envelope: dict) -> CommandBatch:
+    """Step 3: dig out the model's text and parse THAT as our schema (parse #2)."""
+    choice = envelope["choices"][0]
 
     if choice["finish_reason"] != "stop":
         raise ModelOutputError(f"reply incomplete (finish_reason={choice['finish_reason']})")
