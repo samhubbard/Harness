@@ -11,3 +11,6 @@ __pycache__/
 # Runtime output
 logs/
 *.log
+
+# Personal notes and docs (kept local)
+*.md
