@@ -36,10 +36,20 @@ def _check_heading(cmd: SetHeading, state: AircraftState) -> str | None:
     return None
 
 
+def _check_altitude(cmd: SetAltitude, state: AircraftState) -> str | None:
+    if reason := _out_of_range("altitude_ft", cmd.altitude_ft, ALTITUDE_FT):
+        return reason
+    if cmd.altitude_direction == "climb" and state.altitude_ft >= cmd.altitude_ft:
+        return f"climb to {cmd.altitude_ft:,} ft but already at {state.altitude_ft:,} ft"
+    elif cmd.altitude_direction == "descend" and state.altitude_ft <= cmd.altitude_ft:
+        return f"descend to {cmd.altitude_ft:,} ft but already at {state.altitude_ft:,} ft"
+    return None
+
+
 def _check_command(cmd, state: AircraftState) -> str | None:
     match cmd:
         case SetAltitude():
-            return _out_of_range("altitude_ft", cmd.altitude_ft, ALTITUDE_FT)
+            return _check_altitude(cmd, state)
         case SetHeading():
             return _check_heading(cmd, state)
         case SetAirspeed():

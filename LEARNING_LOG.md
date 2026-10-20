@@ -111,4 +111,18 @@ Status: ⬜ not started · 🟨 in progress · ✅ can explain it in my own word
 **Added:** optional `turn_direction`; `state.py` (simulated aircraft); state-aware rule (180° reversal with no
 direction → clarify); `readback.py` (Python-generated ATC phrasing). 27 tests.
 
+**Hands-on (I wrote it):** `altitude_direction` end to end: schema field, `_check_altitude` contradiction rule,
+wired into `_check_command`, parametrized tests including the `>=` boundary, prompt rule + example. 33 tests.
+Live: at 5,000 ft, "climb and maintain 3,000" → REJECTED; "maintain 4,000" → accepted.
+
+**Python lessons from review**
+- `is` = reference identity (C# `ReferenceEquals`); `==` = value equality. Use `is` only for `None`.
+  `is "climb"` "worked" only due to string interning, and Python warns about it.
+- A function nothing calls is dead code: the `case` already existed; it had to *call* the new function.
+- Keyword args with defaults (`altitude_ft: int = 0`) = C# optional/named parameters.
+- **Test the boundary** (`5000 → 5000 climb`): it's the only case that distinguishes `>=` from `>`.
+- **The model never reads the schema** (in Ollama), so a new field needs a prompt rule + example, or it never gets filled.
+- **A broken prompt example "worked"** because the rule line + constrained decoding compensated. A latent defect:
+  it works today and breaks on a provider with weaker enforcement. Prompts need checks just like code.
+
 **My one-liner:** *(write it here in my own words)*

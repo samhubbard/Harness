@@ -11,8 +11,8 @@ from harness.state import AircraftState
 from harness.validator import validate
 
 
-def decide(json_text: str, heading_deg: int = 360) -> list[str]:
-    return validate(CommandBatch.model_validate_json(json_text), AircraftState(heading_deg=heading_deg))
+def decide(json_text: str, heading_deg: int = 360, altitude_ft: int = 0) -> list[str]:
+    return validate(CommandBatch.model_validate_json(json_text), AircraftState(heading_deg=heading_deg, altitude_ft=altitude_ft))
 
 
 @pytest.mark.parametrize("json_text", [
@@ -55,6 +55,20 @@ def test_one_bad_command_rejects_whole_batch():
 def test_reversal_needs_turn_direction(current, target, direction, accepted):
     command = {"action": "set_heading", "heading_deg": target, "turn_direction": direction}
     reasons = decide(CommandBatch(commands=[command]).model_dump_json(), heading_deg=current)
+    assert (reasons == []) == accepted
+
+
+@pytest.mark.parametrize("current, target, direction, accepted", [
+    (5000, 1000, "climb", False),
+    (5000, 1000, "descend", True),
+    (5000, 10000, "climb", True),
+    (5000, 10000, "descend", False),
+    (1000, 5000, None, True),
+    (5000, 5000, "climb", False)
+])
+def test_check_altitude_request(current, target, direction, accepted):
+    command = {"action": "set_altitude", "altitude_ft": target, "altitude_direction": direction}
+    reasons = decide(CommandBatch(commands=[command]).model_dump_json(), altitude_ft=current)
     assert (reasons == []) == accepted
 
 

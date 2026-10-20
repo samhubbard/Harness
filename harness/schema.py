@@ -18,6 +18,8 @@ from pydantic import BaseModel, Field
 class SetAltitude(BaseModel):
     action: Literal["set_altitude"]
     altitude_ft: int
+    # Optional on purpose "climb, descend are not necessarily required here."
+    altitude_direction: Literal["climb", "descend"] | None = None
 
 
 class SetHeading(BaseModel):
