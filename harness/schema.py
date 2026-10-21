@@ -40,6 +40,22 @@ class SetFrequency(BaseModel):
     frequency_mhz: float
 
 
+class TurnBy(BaseModel):
+    """Relative turn ("turn 30 right"). The model copies the numbers; code computes the heading."""
+
+    action: Literal["turn_by"]
+    degrees: int
+    turn_direction: Literal["left", "right"]  # required: a relative turn is meaningless without one
+
+
+class ChangeAltitudeBy(BaseModel):
+    """Relative altitude ("climb another 2000"). The model copies the numbers; code computes the target."""
+
+    action: Literal["change_altitude_by"]
+    feet: int
+    altitude_direction: Literal["climb", "descend"]
+
+
 class Clarify(BaseModel):
     """The model's way to say "I'm not sure what you meant" instead of guessing."""
 
@@ -50,7 +66,7 @@ class Clarify(BaseModel):
 # "Discriminated union": the `action` value decides which class applies,
 # like a C# switch on a type tag. Each action carries only its own fields.
 Command = Annotated[
-    Union[SetAltitude, SetHeading, SetAirspeed, SetFrequency, Clarify],
+    Union[SetAltitude, SetHeading, SetAirspeed, SetFrequency, TurnBy, ChangeAltitudeBy, Clarify],
     Field(discriminator="action"),
 ]
 

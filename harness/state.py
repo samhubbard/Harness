@@ -6,7 +6,9 @@ no parsing. Pydantic guards the trust boundary (model output); dataclasses hold 
 
 from dataclasses import dataclass, field
 
-from harness.schema import Clarify, CommandBatch, SetAirspeed, SetAltitude, SetFrequency, SetHeading
+from harness.schema import (
+    ChangeAltitudeBy, Clarify, CommandBatch, SetAirspeed, SetAltitude, SetFrequency, SetHeading, TurnBy,
+)
 
 
 @dataclass
@@ -31,3 +33,5 @@ class AircraftState:
                     self.radios_mhz[cmd.radio] = cmd.frequency_mhz
                 case Clarify():
                     raise ValueError("clarify is not executable; the validator should have rejected it")
+                case TurnBy() | ChangeAltitudeBy():
+                    raise ValueError("relative commands must be resolved before they are applied")

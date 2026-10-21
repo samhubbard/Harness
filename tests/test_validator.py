@@ -72,8 +72,39 @@ def test_check_altitude_request(current, target, direction, accepted):
     assert (reasons == []) == accepted
 
 
+@pytest.mark.parametrize("current, target, direction, accepted", [
+    (360, 330, "right", False),  # the live bug: a 330° turn the long way
+    (360, 330, "left", True),    # 30° left
+    (360, 180, "right", True),   # exactly 180 is a reversal, not "the long way"
+    (90, 80, "right", False),    # 350° right
+])
+def test_long_way_turn_needs_confirmation(current, target, direction, accepted):
+    command = {"action": "set_heading", "heading_deg": target, "turn_direction": direction}
+    reasons = decide(CommandBatch(commands=[command]).model_dump_json(), heading_deg=current)
+    assert (reasons == []) == accepted
+
+
+@pytest.mark.parametrize("command, altitude_ft, expected", [
+    ({"action": "turn_by", "degrees": 390, "turn_direction": "right"}, 0, "turn_by degrees"),  # must not wrap to 30
+    ({"action": "turn_by", "degrees": -30, "turn_direction": "right"}, 0, "turn_by degrees"),
+    ({"action": "turn_by", "degrees": 0, "turn_direction": "left"}, 0, "turn_by degrees"),
+    ({"action": "change_altitude_by", "feet": -2000, "altitude_direction": "climb"}, 3000, "change_altitude_by"),
+    ({"action": "change_altitude_by", "feet": 14000, "altitude_direction": "climb"}, 3000, "altitude_ft"),  # 17,000 resolved
+    ({"action": "change_altitude_by", "feet": 4000, "altitude_direction": "descend"}, 3000, "altitude_ft"),  # -1,000 resolved
+])
+def test_rejects_bad_relative_commands(command, altitude_ft, expected):
+    reasons = decide(CommandBatch(commands=[command]).model_dump_json(), altitude_ft=altitude_ft)
+    assert reasons and expected in reasons[0]
+
+
+def test_relative_and_absolute_heading_in_one_batch_conflict():
+    reasons = decide('{"commands":[{"action":"turn_by","degrees":30,"turn_direction":"right"},'
+                     '{"action":"set_heading","heading_deg":90}]}')
+    assert reasons and "duplicate" in reasons[0]  # both resolve to set_heading
+
+
 @pytest.mark.parametrize("json_text", [
-    '{"commands":[{"action":"self_destruct"}]}',                           # unknown action
+    '{"commands":[{"action":"self_destruct"}]}',                          # unknown action
     '{"commands":[{"action":"set_altitude","altitude_ft":"five thousand"}]}',  # wrong type
     '{"commands":[{"action":"set_altitude"}]}',                            # missing field
     '{"commands":[{"action":"set_altitude","altitude_ft":5000',           # truncated JSON
