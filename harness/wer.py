@@ -8,8 +8,9 @@ It is the minimum number of word edits to turn the hypothesis into the reference
 like a diff), so it can exceed 100% when the recognizer adds lots of extra words.
 """
 
-import re
 from dataclasses import dataclass, replace
+
+from harness.numbers import collapse_numbers, words
 
 
 @dataclass(frozen=True)
@@ -31,16 +32,21 @@ class WordErrors:
         return replace(self, **{name: getattr(self, name) + n for name, n in counts.items()})
 
 
-def normalize(text: str) -> list[str]:
-    """Lowercase and drop punctuation, so "Heading," and "heading" match. Real systems also normalize
-    numbers ("5000" vs "five thousand"); without that, formatting differences count as errors."""
-    return re.sub(r"[^a-z0-9.' ]+", " ", text.lower()).replace(". ", " ").strip(" .").split()
+def normalize(text: str, numbers: bool = False) -> list[str]:
+    """Lowercase and drop punctuation, so "Heading," and "heading" match.
+
+    numbers=True also turns every spoken number into one token holding its value, so "5000", "five thousand"
+    and "five zero zero zero" all match. Without it, formatting differences count as recognition errors.
+    Side effect worth saying out loud: a spoken number then counts as ONE word, so the denominator shrinks.
+    Always report which normalization a WER used."""
+    tokens = words(text)
+    return collapse_numbers(tokens) if numbers else tokens
 
 
-def word_errors(reference: str, hypothesis: str) -> WordErrors:
+def word_errors(reference: str, hypothesis: str, numbers: bool = False) -> WordErrors:
     """Edit distance over words (dynamic programming): row i holds the cheapest way to match the
     first i reference words against each prefix of the hypothesis."""
-    ref, hyp = normalize(reference), normalize(hypothesis)
+    ref, hyp = normalize(reference, numbers), normalize(hypothesis, numbers)
     previous = [WordErrors(insertions=j) for j in range(len(hyp) + 1)]
     for i, ref_word in enumerate(ref, start=1):
         current = [WordErrors(deletions=i)]
@@ -52,12 +58,12 @@ def word_errors(reference: str, hypothesis: str) -> WordErrors:
     return replace(previous[-1], reference_words=len(ref))
 
 
-def wer(reference: str, hypothesis: str) -> float:
-    return word_errors(reference, hypothesis).rate
+def wer(reference: str, hypothesis: str, numbers: bool = False) -> float:
+    return word_errors(reference, hypothesis, numbers).rate
 
 
-def corpus_wer(pairs: list[tuple[str, str]]) -> float:
+def corpus_wer(pairs: list[tuple[str, str]], numbers: bool = False) -> float:
     """Total errors / total reference words. Not the average of per-sentence WERs, which would let
     a 2-word sentence count as much as a 20-word one."""
-    results = [word_errors(ref, hyp) for ref, hyp in pairs]
+    results = [word_errors(ref, hyp, numbers) for ref, hyp in pairs]
     return sum(r.total for r in results) / max(sum(r.reference_words for r in results), 1)

@@ -4,6 +4,7 @@ The model proposes; this module decides. A batch is all-or-nothing: if any comma
 fails, nothing is applied (like a pilot refusing a clearance they can't fully comply with).
 """
 
+from harness.numbers import spoken_numbers, words
 from harness.resolve import resolve
 from harness.schema import (
     ChangeAltitudeBy, Clarify, CommandBatch, SetAirspeed, SetAltitude, SetFrequency, SetHeading, TurnBy,
@@ -18,6 +19,7 @@ RADIO_BANDS_MHZ = {"VHF": (118.000, 136.975), "UHF": (225.000, 399.975)}
 MAX_COMMANDS = 4
 TURN_BY_DEG = (1, 180)  # a bigger relative turn is unusual enough to say the heading instead
 ALTITUDE_CHANGE_FT = (1, 15_000)
+RELATIVE_ALTITUDE_WORDS = {"another", "by", "more"}  # "climb another 2000", "descend by 500", "500 more"
 
 
 def _out_of_range(name: str, value: float, limits: tuple[float, float]) -> str | None:
@@ -86,6 +88,43 @@ def _check_relative(cmd) -> str | None:
         case ChangeAltitudeBy():
             return _out_of_range("change_altitude_by feet", cmd.feet, ALTITUDE_CHANGE_FT)
     return None
+
+
+def _spoken_value(cmd) -> int | None:
+    """The number the speaker must have said for this command. Frequencies are left out on purpose:
+    a facility lookup supplies them, not the speaker (the band check still covers them)."""
+    match cmd:
+        case SetHeading():
+            return cmd.heading_deg
+        case SetAltitude():
+            return cmd.altitude_ft
+        case SetAirspeed():
+            return cmd.airspeed_kt
+        case TurnBy():
+            return cmd.degrees
+        case ChangeAltitudeBy():
+            return cmd.feet
+    return None
+
+
+def check_wording(text: str, batch: CommandBatch) -> list[str]:
+    """Cross-check the commands against the words actually said: the rules that need the input text.
+
+    1. Every number in a command must appear in what was said. The model transcribes; this verifies the
+       transcription ("two thousand five hundred" read as 500 is caught here, not by a limit check).
+    2. Absolute and relative instructions must not be confused. "Heading 060" is not "60 degrees", and
+       "descend and maintain 2,500" is not "descend another 2,500" (both mix-ups were seen live). A relative
+       command is only believed if the speaker used a relative word; otherwise ask, don't guess."""
+    heard, said = spoken_numbers(text), set(words(text))
+    reasons = [f"say again: {value} is not in what was said" for cmd in batch.commands
+               if (value := _spoken_value(cmd)) is not None and value not in heard]
+    if not said & {"degree", "degrees"}:
+        reasons += [f"say again: heading or degrees? (heard a {cmd.degrees}° {cmd.turn_direction} turn, but no 'degrees')"
+                    for cmd in batch.commands if isinstance(cmd, TurnBy)]
+    if not said & RELATIVE_ALTITUDE_WORDS:
+        reasons += [f"say again: maintain {cmd.feet} or {cmd.altitude_direction} another {cmd.feet}?"
+                    for cmd in batch.commands if isinstance(cmd, ChangeAltitudeBy)]
+    return reasons
 
 
 def validate(batch: CommandBatch, state: AircraftState) -> list[str]:

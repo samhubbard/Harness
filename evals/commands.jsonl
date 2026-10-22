@@ -27,3 +27,7 @@
 {"id": "long-way", "input": "Turn right heading three three zero", "expect": "reject"}
 {"id": "wrong-band", "input": "Tune UHF one two one point five", "expect": "reject"}
 {"id": "descend-below-zero", "input": "Descend another five thousand", "expect": "reject"}
+{"id": "fly-heading-lower", "input": "fly heading one two zero", "expect": "accept", "commands": [{"action": "set_heading", "heading_deg": 120}]}
+{"id": "turn-by-contrast", "input": "Turn sixty degrees left", "state": {"heading_deg": 90}, "expect": "accept", "commands": [{"action": "set_heading", "heading_deg": 30, "turn_direction": "left"}]}
+{"id": "misheard-heading", "input": "Turn left adding 060", "state": {"heading_deg": 90}, "expect": "reject"}
+{"id": "turn-no-unit", "input": "Turn thirty right", "expect": "reject"}

@@ -5,7 +5,7 @@ Run:  uv run examples/06_inference_params.py
 
 import httpx
 
-from harness.llm import ENDPOINT, MODEL, build_request
+from harness.llm import ENDPOINT, MODEL, ContextOverflowError, build_request, send
 
 BRIEF = [{"role": "user", "content": "In one sentence, give a creative callsign-style name for a training helicopter."}]
 
@@ -42,4 +42,11 @@ filler = "Log entry: routine systems check complete, all parameters nominal. " *
 messages = [{"role": "user", "content": "The secret word is KESTREL.\n" + filler + "\nWhat is the secret word?"}]
 envelope = chat(messages, temperature=0, max_tokens=20)
 print(f"prompt_tokens={envelope['usage']['prompt_tokens']:,}  reply={envelope['choices'][0]['message']['content']!r}")
-print("-> if prompt_tokens is far below what we sent, the server silently dropped part of the prompt.")
+print("-> if prompt_tokens is far below what we sent, the server silently dropped part of the prompt.\n")
+
+print("=" * 20, "5. the same request through the harness: fail closed", "=" * 20)
+try:
+    send({"model": MODEL, "messages": messages, "temperature": 0, "max_tokens": 20})
+except ContextOverflowError as err:
+    print(f"refused: {err}")
+print("-> the harness estimates the size first and refuses, instead of getting a confident wrong answer.")

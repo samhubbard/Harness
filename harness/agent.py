@@ -16,6 +16,7 @@ from harness.state import AircraftState
 from harness.tools import SUBMIT, TOOLS, run_tool
 
 MAX_ROUNDS = 4  # fail closed rather than let the model call tools forever
+TEXT_FALLBACK = "text_fallback"
 
 SYSTEM_PROMPT = llm.SYSTEM_PROMPT + """
 
@@ -36,6 +37,8 @@ def interpret_with_tools(
 
     for _ in range(MAX_ROUNDS):
         reply = _next_reply(send, messages)
+        if not reply.get("tool_calls"):
+            return _parse_text_fallback(reply.get("content"))
         messages.append(reply)  # the model's own request becomes part of the history
         for call in reply["tool_calls"]:
             name, arguments = call["function"]["name"], call["function"]["arguments"]
@@ -61,8 +64,6 @@ def _next_reply(send: Callable[[dict], dict], messages: list[dict]) -> dict:
     choice = send(build_request(messages))["choices"][0]
     if choice["finish_reason"] == "length":
         raise ModelOutputError("reply cut off (finish_reason=length)")
-    if not choice["message"].get("tool_calls"):
-        raise ModelOutputError(f"model replied without calling a tool: {choice['message'].get('content')!r}")
     return choice["message"]
 
 
@@ -71,3 +72,15 @@ def _parse_submission(arguments: str) -> CommandBatch:
         return CommandBatch.model_validate_json(arguments)
     except ValidationError as err:
         raise ModelOutputError(f"{SUBMIT} arguments did not match schema: {err.error_count()} error(s)\n{arguments}") from err
+
+
+def _parse_text_fallback(content: str | None) -> CommandBatch:
+    """The model sometimes writes the right JSON as plain text instead of calling submit_commands.
+    Accept it only if it parses as a CommandBatch: it still goes through validate -> readback -> confirm,
+    so it is trusted no more than a tool call. Anything else fails closed, as before."""
+    try:
+        batch = CommandBatch.model_validate_json(content or "")
+    except ValidationError as err:
+        raise ModelOutputError(f"model replied without calling a tool: {content!r}") from err
+    batch._via = TEXT_FALLBACK  # so the audit log (and the eval) can count how often this happens
+    return batch

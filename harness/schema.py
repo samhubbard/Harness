@@ -12,7 +12,7 @@ legal value. We want the model to transcribe faithfully and the validator to ref
 
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 
 class SetAltitude(BaseModel):
@@ -73,3 +73,10 @@ Command = Annotated[
 
 class CommandBatch(BaseModel):
     commands: list[Command]
+    # How the batch reached us, for the audit log only (e.g. "text_fallback"). Private attributes are
+    # not part of the JSON schema the model sees and not in model_dump(), so the model can't set it.
+    _via: str | None = PrivateAttr(default=None)
+
+    @property
+    def via(self) -> str | None:
+        return self._via

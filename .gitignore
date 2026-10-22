@@ -14,3 +14,4 @@ logs/
 
 # Personal notes and docs (kept local)
 *.md
+!README.md

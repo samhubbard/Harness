@@ -88,6 +88,37 @@ def test_loop_failures_raise_model_output_error(envelopes, message):
         interpret_with_tools("anything", AircraftState(), send)
 
 
+def text_reply(content: str) -> dict:
+    """The model answered in plain text instead of calling a tool."""
+    return {"choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": content}}]}
+
+
+def test_valid_json_as_text_is_accepted_and_marked(tmp_path):
+    state, log = AircraftState(), tmp_path / "audit.jsonl"
+    send, _ = scripted_send(text_reply('{"commands": [{"action": "set_heading", "heading_deg": 120}]}'))
+    result = process("fly heading one two zero", state, lambda spoken: True,
+                     partial(interpret_with_tools, state=state, send=send), log)
+    assert result["outcome"] == "accepted"
+    assert state.heading_deg == 120
+    assert json.loads(log.read_text())["via"] == "text_fallback"  # counted, not hidden
+
+
+@pytest.mark.parametrize("content", ["Sure! Turning to 120.", '{"commands": [{"action": "barrel_roll"}]}', ""])
+def test_text_that_is_not_a_command_batch_fails_closed(content):
+    send, _ = scripted_send(text_reply(content))
+    with pytest.raises(ModelOutputError, match="without calling a tool"):
+        interpret_with_tools("anything", AircraftState(), send)
+
+
+def test_text_fallback_still_goes_through_validator(tmp_path):
+    state, shown = AircraftState(), []
+    send, _ = scripted_send(text_reply('{"commands": [{"action": "set_airspeed", "airspeed_kt": 999}]}'))
+    result = process("anything", state, shown.append,
+                     partial(interpret_with_tools, state=state, send=send), tmp_path / "audit.jsonl")
+    assert result["outcome"] == "rejected"
+    assert shown == []
+
+
 def test_injected_tool_result_cannot_bypass_validator(monkeypatch, tmp_path):
     """Indirect prompt injection: the attack arrives inside a tool RESULT, and the model falls for it."""
     monkeypatch.setitem(tools.DIRECTORY, "alpha tower",

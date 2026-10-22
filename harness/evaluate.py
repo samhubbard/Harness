@@ -49,12 +49,13 @@ def score(case: dict, result: dict) -> str:
     return CORRECT if normalize(result["resolved"]) == normalize(case["commands"]) else WRONG_COMMAND
 
 
-def run_case(case: dict, model_path: str) -> dict:
+def run_case(case: dict, model_path: str, confidence: float | None = None) -> dict:
     state = AircraftState(**{**BASE_STATE, **case.get("state", {})})
     model = interpret if model_path == "structured" else partial(interpret_with_tools, state=state)
     started = time.perf_counter()
     # confirm always says yes: we are measuring the machine, so the human safety net is switched off.
-    result = process(case["input"], state, confirm=lambda spoken: True, model=model, log_path=AUDIT_LOG)
+    result = process(case["input"], state, confirm=lambda spoken: True, model=model, log_path=AUDIT_LOG,
+                     confidence=confidence)
     return {**result, "seconds": time.perf_counter() - started}
 
 
